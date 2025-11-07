@@ -1,16 +1,20 @@
-import google.generativeai as genai
-from django.conf import settings
+import requests
+import json
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from django.conf import settings
 
-def initialize_gemini():
-    """Initialize the Gemini AI client with API key from settings."""
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    return genai.GenerativeModel('gemini-1.5-flash')
+def initialize_groq():
+    """Initialize the Groq AI client configuration."""
+    return {
+        "api_key": settings.GROQ_API_KEY,
+        "model": settings.GROQ_MODEL_NAME,
+        "url": settings.GROQ_API_URL
+    }
 
 def generate_trip_plan(destination, duration, activities, companions, start_date, origin_location=None, transportation_mode=None):
-    """Generate a personalized trip plan using Gemini AI."""
-    model = initialize_gemini()
+    """Generate a personalized trip plan using Groq AI."""
+    config = initialize_groq()
     
     # Format date for display
     from datetime import datetime, timedelta
@@ -27,7 +31,7 @@ def generate_trip_plan(destination, duration, activities, companions, start_date
         - Transportation mode: {transportation_mode}
         """
     
-    # Create a detailed prompt for Gemini
+    # Create a detailed prompt for Groq
     prompt = f"""
     Create a personalized {duration}-day trip itinerary for {destination} from {start_date} to {end_date}.
     This is for a {companions} trip focusing on these activities: {activities}.
@@ -71,23 +75,57 @@ def generate_trip_plan(destination, duration, activities, companions, start_date
     If origin location and transportation mode are provided, include realistic cost estimations for travel between {origin_location} and {destination}.
     """
     
+    # Prepare the request payload for Groq API
+    headers = {
+        "Authorization": f"Bearer {config['api_key']}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": config['model'],
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "max_tokens": 4000,
+        "temperature": 0.7
+    }
+    
     # Generate content with timeout handling using ThreadPoolExecutor
     def call_api():
         try:
-            return model.generate_content(prompt).text
+            response = requests.post(
+                config['url'],
+                headers=headers,
+                json=payload,
+                timeout=40
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            if 'choices' in result and len(result['choices']) > 0:
+                return result['choices'][0]['message']['content']
+            else:
+                raise Exception("No response content received from Groq API")
+                
+        except requests.exceptions.RequestException as e:
+            print(f"Error calling Groq API: {str(e)}")
+            raise
         except Exception as e:
-            print(f"Error calling Gemini API: {str(e)}")
+            print(f"Error processing Groq API response: {str(e)}")
             raise
     
     # Set a timeout for API call - 40 seconds
     with ThreadPoolExecutor() as executor:
         try:
             future = executor.submit(call_api)
-            return future.result(timeout=40)
+            return future.result(timeout=45)
         except TimeoutError:
-            print("Gemini API call timed out after 40 seconds")
+            print("Groq API call timed out after 45 seconds")
             raise TimeoutError("AI service took too long to respond")
         except Exception as e:
             print(f"Error in generate_trip_plan: {str(e)}")
             # If the API fails, provide a fallback response
-            raise 
+            raise

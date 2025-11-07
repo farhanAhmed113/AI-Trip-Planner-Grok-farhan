@@ -123,11 +123,10 @@ RAZORPAY_KEY_ID = "rzp_test_tPhc333asPKtv6"
 RAZORPAY_KEY_SECRET = "UVSxUflxDlLM9dgEHGBxVok2"
 
 
-GEMINI_API_KEY = "AIzaSyC6gOxwWLT2froUzKBgilY0nJEEuV2gCqA" 
-
-# class ApiConstants {
-#   static const String apiKey = 'AIzaSyC6gOxwWLT2froUzKBgilY0nJEEuV2gCqA';
-#   static const String modelName = 'gemini-1.5-flash';
+# Groq API Configuration
+GROQ_API_KEY = "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"
+GROQ_MODEL_NAME = "llama-3.1-8b-instant"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 # }
 
 
